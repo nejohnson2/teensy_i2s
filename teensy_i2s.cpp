@@ -29,11 +29,12 @@
 #include "mk20dx128.h"
 #include "core_pins.h"
 
-// There's one instance of the class for Tx, another for Rx
+I2S_class I2STx0(0);
 I2S_class I2SRx0(1);
 
 // Buffers for 16 bit audio samples.
 static _I2S_SAMPLE_T _i2s_Rx_Buffer[I2S_FRAME_SIZE];
+static _I2S_SAMPLE_T _i2s_Tx_Buffer[I2S_FRAME_SIZE];
 
 I2S_class::I2S_class(uint8_t isRx)
 {
@@ -45,7 +46,10 @@ void I2S_class::begin(uint8_t clk, void (*fptr)( _I2S_SAMPLE_T *pBuf))
 {
     clock = clk;
     fnI2SCallback = fptr;
-    init();
+    io_init();
+    clock_init();
+    i2s_receive_init();
+    i2s_transmit_init();
 }
 
 void I2S_class::start()
@@ -75,89 +79,17 @@ void I2S_class::stop()
     NVIC_DISABLE_IRQ(IRQ_I2S0_TX);
 }
 
+void I2S_class::io_init(void){
 
-void I2S_class::io_init(void)
-{
-    // Pins for transmit
-    switch( ( I2S_PIN_PATTERN) & 0x0F )
-    {
-        case I2S_TX_PIN_PATTERN_1:
-            CORE_PIN3_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TXD0
-            CORE_PIN4_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_FS
-            CORE_PIN9_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_BCLK
-            break;
-        case I2S_TX_PIN_PATTERN_2:
-            CORE_PIN3_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TXD0
-            CORE_PIN4_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_FS
-            CORE_PIN9_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_BCLK
-            CORE_PIN11_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_MCLK
-            break;
-        case I2S_TX_PIN_PATTERN_3:
-            CORE_PIN22_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TXD0
-            CORE_PIN23_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_FS
-            CORE_PIN9_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_BCLK
-            break;
-        case I2S_TX_PIN_PATTERN_4:
-            CORE_PIN22_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TXD0
-            CORE_PIN23_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_FS
-            CORE_PIN9_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_BCLK
-            CORE_PIN11_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_MCLK
-            break;
-        case I2S_TX_PIN_PATTERN_5:
-            CORE_PIN3_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TXD0
-            CORE_PIN4_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_FS
-            CORE_PIN24_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_BCLK
-            break;
-        case I2S_TX_PIN_PATTERN_6:
-            CORE_PIN3_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TXD0
-            CORE_PIN4_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_FS
-            CORE_PIN24_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_BCLK
-            CORE_PIN28_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_MCLK
-            break;
-        default:
-            break;
-    }
- 
-    // Pins for receive
-    switch( (I2S_PIN_PATTERN) & 0xF0 )
-    {
-        case I2S_RX_PIN_PATTERN_1:
-            CORE_PIN11_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_BCLK
-            CORE_PIN12_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_FS
-            CORE_PIN13_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RXD0
-            break;
-        case I2S_RX_PIN_PATTERN_2:
-            CORE_PIN11_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_BCLK
-            CORE_PIN12_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_FS
-            CORE_PIN13_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RXD0
-            CORE_PIN28_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_MCLK
-            break;
-        case I2S_RX_PIN_PATTERN_3:
-            CORE_PIN11_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_MCLK
-            CORE_PIN12_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_FS
-            CORE_PIN13_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RXD0
-            CORE_PIN27_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_BCLK
-            break;
-        case I2S_RX_PIN_PATTERN_4:
-            CORE_PIN27_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_BCLK
-            CORE_PIN29_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_FS
-            CORE_PIN13_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RXD0
-            break;
-        case I2S_RX_PIN_PATTERN_5:
-            CORE_PIN27_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_BCLK
-            CORE_PIN29_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_FS
-            CORE_PIN13_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RXD0
-            CORE_PIN28_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_MCLK
-            break;
-        case I2S_RX_PIN_PATTERN_6:
-            CORE_PIN27_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_BCLK
-            CORE_PIN29_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_FS
-            CORE_PIN13_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RXD0
-            CORE_PIN11_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_MCLK
-            break;
-        default:
-            break;
-    }
+  // TX
+  CORE_PIN3_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TXD0
+  CORE_PIN4_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_FS
+  CORE_PIN9_CONFIG  = PORT_PCR_DSE | PORT_PCR_MUX(6);     // I2S0_TX_BCLK
+
+  // RX
+  CORE_PIN11_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_BCLK
+  CORE_PIN12_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RX_FS
+  CORE_PIN13_CONFIG = PORT_PCR_DSE | PORT_PCR_MUX(4);     // I2S0_RXD0  
 }
 
 
@@ -193,15 +125,6 @@ void I2S_class::clock_init()
     SIM_SCGC6 |= SIM_SCGC6_I2S;
 }
 
-void I2S_class::init()
-{
-    io_init();
-    clock_init();
-    i2s_receive_init();
-    i2s_transmit_init();
-
-}
-
 // Configures the number of words in each frame. The value written 
 // should be one less than the number of words in the frame (for 
 // example, write 0 for one word per frame). The maximum supported 
@@ -216,6 +139,7 @@ void I2S_class::init()
 
 void I2S_class::i2s_transmit_init()
 {
+
     // transmit disable while we configure everything
     I2S0_TCSR &= ~(I2S_TCSR_TE);
     
@@ -230,12 +154,10 @@ void I2S_class::i2s_transmit_init()
     // --------------------------------------------------------------------------------
     I2S0_TCR2  = I2S_TCR2_SYNC(0);          // use asynchronous mode
     I2S0_TCR2 |= I2S_TCR2_BCP;              // BCLK polarity: active low
-    if( clock != I2S_CLOCK_EXTERNAL )
-    {
-        I2S0_TCR2 |= I2S_TCR2_MSEL(1);          // use mc1 (notbus clock as BCLK source
-        I2S0_TCR2 |= I2S_TCR2_DIV(3);           // divide internal master clock to generate bit clock
-        I2S0_TCR2 |= I2S_TCR2_BCD;              // BCLK is generated internally (master mode)
-    }
+    I2S0_TCR2 |= I2S_TCR2_MSEL(1);          // use mc1 (notbus clock as BCLK source
+    I2S0_TCR2 |= I2S_TCR2_DIV(3);           // divide internal master clock to generate bit clock
+    I2S0_TCR2 |= I2S_TCR2_BCD;              // BCLK is generated internally (master mode)
+    
     // --------------------------------------------------------------------------------    
     I2S0_TCR3  = I2S_TCR3_TCE;              // transmit data channel is enabled
     // --------------------------------------------------------------------------------
@@ -243,40 +165,37 @@ void I2S_class::i2s_transmit_init()
     I2S0_TCR4 |= I2S_TCR4_SYWD(SYWD);       // number of bits in frame sync (plus one)
     I2S0_TCR4 |= I2S_TCR4_MF;               // MSB (most significant bit) first
     I2S0_TCR4 |= I2S_TCR4_FSE;              // Frame sync one bit before the frame
-    if( clock != I2S_CLOCK_EXTERNAL )
-    {
-        I2S0_TCR4 |= I2S_TCR4_FSD;              // WCLK is generated internally (master mode)
-    }
+    I2S0_TCR4 |= I2S_TCR4_FSD;              // WCLK is generated internally (master mode)
+
     // --------------------------------------------------------------------------------
     I2S0_TCR5  = I2S_TCR5_W0W(SYWD);        // bits per word, first frame
     I2S0_TCR5 |= I2S_TCR5_WNW(SYWD);        // bits per word, nth frame
-    I2S0_TCR5 |= I2S_TCR5_FBT(0x0f);        // index shifted for FIFO (TODO depend on I2S_BUFFER_BIT_DEPTH)
+    I2S0_TCR5 |= I2S_TCR5_FBT(SYWD);        // index shifted for FIFO (TODO depend on I2S_BUFFER_BIT_DEPTH)
+    
 }
 
 void I2S_class::i2s_receive_init()
 {
     // receive disable while we configure everything
-    I2S0_RCSR &= ~(I2S_RCSR_RE);
+    // I2S0_RCSR &= ~(I2S_RCSR_RE);
 
-    // Receiver remains enabled until (and TE set) the end of the current frame
-    for( int i=0; i<1000 && (I2S0_RCSR & I2S_RCSR_RE); i++ );
-    if( I2S0_RCSR & I2S_RCSR_RE )
-        return;
+    // // Receiver remains enabled until (and TE set) the end of the current frame
+    // for( int i=0; i<1000 && (I2S0_RCSR & I2S_RCSR_RE); i++ );
+    // if( I2S0_RCSR & I2S_RCSR_RE )
+    //     return;
 
     I2S0_RMR = 0;                           // 0 = No word mask (stereo). 1 and 2 maske
                                             // either left or right audio side
     // --------------------------------------------------------------------------------
     I2S0_RCR1  = I2S_RCR1_RFW(FRSZ);        // set FIFO watermark
     // --------------------------------------------------------------------------------
-    I2S0_RCR2  = I2S_RCR2_SYNC(1);          // synchronous with the transmitter
+    I2S0_RCR2  = I2S_RCR2_SYNC(0);          // synchronous with the transmitter
     I2S0_RCR2 |= I2S_RCR2_BCP;              // BCLK polarity: active low
-    if( clock != I2S_CLOCK_EXTERNAL )
-    {
-        I2S0_RCR2 |= I2S_RCR2_MSEL(0);          // use MCLK as BCLK source
-        I2S0_RCR2 |= I2S_RCR2_DIV(7);           // (DIV + 1) * 2, 12.288 MHz / 4 = 3.072 MHz
-        //I2S0_RCR2 |= I2S_RCR2_DIV(1);           // 3.072 MHz / 64 bit per frame = 48kHz sampling
-        I2S0_RCR2 |= I2S_RCR2_BCD;              // BCLK is generated internally in Master mode
-    }
+    I2S0_RCR2 |= I2S_RCR2_MSEL(1);          // use MCLK as BCLK source
+    I2S0_RCR2 |= I2S_RCR2_DIV(1);           // (DIV + 1) * 2, 12.288 MHz / 4 = 3.072 MHz
+    //I2S0_RCR2 |= I2S_RCR2_DIV(1);           // 3.072 MHz / 64 bit per frame = 48kHz sampling
+    I2S0_RCR2 |= I2S_RCR2_BCD;              // BCLK is generated internally in Master mode
+
     // --------------------------------------------------------------------------------
     I2S0_RCR3  = I2S_RCR3_RCE;              // receive data channel is enabled (channel 0)
     // --------------------------------------------------------------------------------
@@ -284,14 +203,12 @@ void I2S_class::i2s_receive_init()
     I2S0_RCR4 |= I2S_RCR4_SYWD(SYWD);       // bit width of a word (plus one)
     I2S0_RCR4 |= I2S_RCR4_MF;               // MSB (most significant bit) first
     I2S0_RCR4 |= I2S_RCR4_FSE;              // Frame sync one bit before the frame
-    if( clock != I2S_CLOCK_EXTERNAL )
-    {
-        I2S0_RCR4 |= I2S_RCR4_FSD;          // WCLK is generated internally (master mode)
-    }
+    I2S0_RCR4 |= I2S_RCR4_FSD;          // WCLK is generated internally (master mode)
+
     // --------------------------------------------------------------------------------
     I2S0_RCR5  = I2S_RCR5_W0W(SYWD);        // bits per word, first frame
     I2S0_RCR5 |= I2S_RCR5_WNW(SYWD);        // bits per word, nth frame
-    I2S0_RCR5 |= I2S_RCR5_FBT(0x0f);        // index shifted for FIFO (TODO depend on I2S_BUFFER_BIT_DEPTH)
+    I2S0_RCR5 |= I2S_RCR5_FBT(SYWD);        // index shifted for FIFO (TODO depend on I2S_BUFFER_BIT_DEPTH)
     //I2S0_RCR5 |= I2S_RCR5_FBT(SYWD);        // 
 }
 
@@ -310,9 +227,39 @@ void I2S_class::i2s_rx_callback(void)
    if(I2S0_RCSR & I2S_RCSR_FEF)  I2S0_RCSR |= I2S_RCSR_FEF; // clear if underrun
    if(I2S0_RCSR & I2S_RCSR_SEF)  I2S0_RCSR |= I2S_RCSR_SEF; // clear if frame sync error
 }
+/* I2S class-instance callbacks */
+// void I2S_class::i2s_tx_callback(void)
+// {
+//     if(!(I2S0_TCSR & I2S_TCSR_FRF))  return;
+    
+//     // Call your function to get the data into our buffer
+//     fnI2SCallback( _i2s_Tx_Buffer );
 
+//     // Copy the data from our buffer into FIFO
+//     if( I2S_FRAME_SIZE>0 ) I2S0_TDR0 = (uint32_t)(_i2s_Tx_Buffer[0]);
+//     if( I2S_FRAME_SIZE>1 ) I2S0_TDR0 = (uint32_t)(_i2s_Tx_Buffer[1]);
+//     if( I2S_FRAME_SIZE>2 ) I2S0_TDR0 = (uint32_t)(_i2s_Tx_Buffer[2]);
+//     if( I2S_FRAME_SIZE>3 ) I2S0_TDR0 = (uint32_t)(_i2s_Tx_Buffer[3]);
+    
+//     //for( uint8_t i=0; i<I2S_FRAME_SIZE-1; i++ )
+//     //{
+//         //I2S0_TDR0 = (uint32_t)(_I2S_SAMPLE_T)(_i2s_Tx_Buffer[i]);
+//     //}
+    
+//     if(I2S0_TCSR & I2S_TCSR_FEF) {
+//         I2S0_TCSR |= I2S_TCSR_FEF; // clear if underrun
+//     }
+//     if(I2S0_TCSR & I2S_TCSR_SEF) {
+//         I2S0_TCSR |= I2S_TCSR_SEF; // clear if frame sync error
+//     }
+// }
 /* I2S ISR */
 void i2s0_rx_isr(void)
 {
     I2SRx0.i2s_rx_callback();
 }
+/* I2S ISR (used when you're not using DMA) */
+// void i2s0_tx_isr(void)
+// {
+//     I2STx0.i2s_tx_callback();
+// }
