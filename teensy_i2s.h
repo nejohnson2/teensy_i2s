@@ -42,7 +42,6 @@
 #define I2S_CLOCK_44K_INTERNAL 3            // The bit clock is 44.1kHz, internally generated
 #define I2S_CLOCK_48K_INTERNAL 4            // The bit clock is 48kHz, internally generated
 
-
 // Pin patterns
 // Teensy 3.0 hardware has several ways to configure its I2S pins:
 //      pin     alt4            alt6
@@ -82,15 +81,6 @@
 // Otherwise the default is this
 #define I2S_PIN_PATTERN        I2S_TX_PIN_PATTERN_1 + I2S_RX_PIN_PATTERN_1
 
-
-// DMA buffer size (in samples).
-// Using ping-pong DMA, this determines your latency.
-// If you need super-low latency, set this smaller (or use I2S without DMA).
-#define DMA_BUFFER_SIZE        128
-
-// Use round-robin DMA channel priorities?  If not, they're explicitly set
-#define ROUNDROBIN
-
 // Data type for the API
 #if I2S_BUFFER_BIT_DEPTH==8
 #define _I2S_SAMPLE_T          int8_t
@@ -107,50 +97,36 @@ class I2S_class
         // Flags
         uint8_t clock;      /* one of I2S_CLOCK_xxx */
         uint8_t receive;    /* 1 or 0 */
-        bool useDMA;
-        //volatile bool _dma_using_Buffer_A;
-        void (*fnI2SCallback)( _I2S_SAMPLE_T *pBuf );                      // the I2S callback (buffer size = I2S_FRAME_SIZE)
-        //void (*fnDMACallback)( _I2S_SAMPLE_T *pBuf, uint16_t numSamples ); // the DMA callback (buffer size = DMA_BUFFER_SIZE)
-        
+
+        // the I2S callback (buffer size = I2S_FRAME_SIZE)
+        void (*fnI2SCallback)( _I2S_SAMPLE_T *pBuf );  
+
         void init();
         void io_init();
         void clock_init();
         void i2s_transmit_init();
         void i2s_receive_init();
-        // void dma_buffer_init();
-        // void dma_transmit_init();
-        // void dma_receive_init();
-        // void dma_start();
-        // void dma_stop();
         
     public:
-        /* Don't construct your own, there are two ready-made instances, one for receive and one for transmit */
+        /* 
+        Don't construct your own, there are two ready-made 
+        instances, one for receive and one for transmit 
+        */
         I2S_class(uint8_t isRx);
         
         /*
-         * @brief       Initialize the I2S interface for use without DMA.
+         * @brief       Initialize the I2S interface 
          *
          * @param[in]   clk     The clock type and speed, one of I2S_CLOCK_xxx
          * @param[in]   fptr    The callback function that your sketch implements.
          *                      This will be called with a pointer to a buffer
-         *                      where you will read or write I2S_FRAME_SIZE of _I2S_SAMPLE_T audio data.
+         *                      where you will read or write I2S_FRAME_SIZE 
+         *                      of _I2S_SAMPLE_T audio data.
          * @return      none.
          */
         void begin(uint8_t clk, void (*fptr)( _I2S_SAMPLE_T *pBuf ));
         
-        /*
-         * @brief       Initialize the I2S interface for use with DMA.
-         *
-         * @param[in]   clk     The clock type and speed, one of I2S_CLOCK_xxx
-         * @param[in]   fptr    The callback function that your sketch implements.
-         *                      This will be called with a pointer to a buffer
-         *                      where you will read or write numSamples of _I2S_SAMPLE_T audio data.
-         * @return      none.
-         *
-         * TODO !!!receive with DMA is not yet implemented!!! (transmit is ok)
-         */
-        //void begin(uint8_t clk, void (*fptr)( _I2S_SAMPLE_T *pBuf, uint16_t numSamples ));
-
+        
         /*
          * @brief   Start the I2S interface.  (You must have initialized first).
          * @return  none.
@@ -164,14 +140,9 @@ class I2S_class
         void stop();
 
         /* internal */
-        inline void i2s_tx_callback(void);
         inline void i2s_rx_callback(void);
-        // inline void dma_tx_callback(void);
-        // inline void dma_rx_callback(void);
 };
 
-
-extern I2S_class I2STx0;
 extern I2S_class I2SRx0;
 
 #endif
